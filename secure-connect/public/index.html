@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secure Connect Chat</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:560px;margin:2rem auto;padding:0 1rem}
+  input,button{padding:.5rem;margin:.2rem 0}
+  #log{border:1px solid #ccc;height:260px;overflow-y:auto;padding:.5rem;margin:.5rem 0;border-radius:6px}
+  .sys{color:#888;font-style:italic}
+</style>
+</head>
+<body>
+<h2>Secure Connect – Chat</h2>
+<div id="login">
+  <input id="email" placeholder="email"> <input id="password" type="password" placeholder="password">
+  <button onclick="login()">Login &amp; Connect</button>
+  <div id="err" style="color:crimson"></div>
+</div>
+<div id="chat" hidden>
+  <div id="log"></div>
+  <input id="msg" placeholder="Type a message" style="width:70%" onkeydown="if(event.key==='Enter')send()">
+  <button onclick="send()">Send</button>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+let socket;
+const log = (t, cls='') => { const d=document.createElement('div'); d.className=cls; d.textContent=t;
+  document.getElementById('log').appendChild(d); d.scrollIntoView(); };
+
+async function login(){
+  const res = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email:email.value,password:password.value})});
+  const data = await res.json();
+  if(!res.ok){ err.textContent = data.message; return; }
+  socket = io({ auth:{ token:data.token } });
+  socket.on('connect_error', e => err.textContent = e.message);
+  socket.on('connect', () => { socket.emit('joinRoom','general');
+    document.getElementById('login').hidden=true; document.getElementById('chat').hidden=false; });
+  socket.on('system', t => log(t,'sys'));
+  socket.on('chatMessage', m => log(`[${m.room}] ${m.username}: ${m.text}`));
+}
+function send(){ if(!msg.value.trim()) return; socket.emit('chatMessage',{room:'general',text:msg.value}); msg.value=''; }
+</script>
+</body>
+</html>
